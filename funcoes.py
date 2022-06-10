@@ -5,29 +5,33 @@ from unidecode import unidecode
 from classes import *
 
 LINK_BASE = "https://www.projetoagathaedu.com.br/"
+materia = ""
 
 def get_materia(subject):
     teste = requests.get(f"https://www.projetoagathaedu.com.br/banco-de-questoes/{subject}.php")    
+    global materia 
+    materia = subject
     page_content = teste.text
     soup = BeautifulSoup(page_content,"lxml")
     supertopicos = soup.select(".accordion")
+    pode = 1
+    Questoes = []
     for supertopico in supertopicos:#topicos
         titulo_topicos = supertopico.select(".accordion__content")[0].select('h3')#nomes dos topicos
         questoes_topicos = supertopico.select(".accordion__content")[0].select(".painel")#lista de topicos
         titulo_supertopico = supertopico.select(".accordion__label")[0].text
         if "Temas" in titulo_supertopico:
             continue
-        # if "Vest" not in titulo_supertopico:
-            # continue
         print("Supertópico: " + titulo_supertopico)
-        get_topicos(titulo_topicos,titulo_supertopico,questoes_topicos)
-        #SupertopicosObj.add(Supertopico(titulo_supertopico,topicos))
-
+        if pode:
+            questoes_supertopico = get_topicos(titulo_topicos,titulo_supertopico,questoes_topicos)
+            Questoes.extend(questoes_supertopico)
+    return Questoes
         
 def get_topicos(titulos, titulo_supertopico, topicos):
+    Questoes = []
     indice_titulo = 0 
     flag = 0
-    # topicosobj = []
     for topico in topicos:
         #processa topico, associa todos os topicos com o titulo deles (titulos[indice_titulo])
         subtopico = topico.select(".opcao")
@@ -37,12 +41,13 @@ def get_topicos(titulos, titulo_supertopico, topicos):
             titulo_topico = titulos[indice_titulo].text
             indice_titulo += 1
         flag = 1
-        get_subtopicos(subtopico,titulo_supertopico, titulo_topico)
-        #topicosobj.add(Topico(titulos[indice_titulo],subtopicos))
+        questoes_topico = get_subtopicos(subtopico,titulo_supertopico, titulo_topico)
+        Questoes.extend(questoes_topico)
+    return Questoes
         
 
 def get_subtopicos(subtopicos,titulo_supertopico, titulo_topico):
-    # subtopicobj = []
+    Questoes = []
     for subtopico in subtopicos:
         #processa as questoes do subtopico
         try:
@@ -53,17 +58,18 @@ def get_subtopicos(subtopicos,titulo_supertopico, titulo_topico):
         print("         +Subtópico: "+titulo_subtopico)
         link = link.replace("../",'')
         link = link.replace("./",'')
-        get_questoes(LINK_BASE+link,titulo_supertopico,titulo_topico,titulo_subtopico)
-        
+        questoes_subtopico = get_questoes(LINK_BASE+link,titulo_supertopico,titulo_topico,titulo_subtopico)
+        Questoes.extend(questoes_subtopico)
+    return Questoes
          
 def validar_nome(nome):
     invalido = "\/:*?\"<>| "
     for c in invalido:
         nome = nome.replace(c,'')
-    nome = unidecode(nome)
+    nome = unidecode(nome).lstrip().rstrip()
     return nome
 
-def processa_imagem(imagem_html,titulo_supertopico,titulo_topico,titulo_subtopico,it1,it2,link):
+def processa_imagem(imagem_html,titulo_supertopico,titulo_topico,titulo_subtopico,it1,it2,link,baixa):
     #tratamento dos titulos
     titulo_supertopico = validar_nome(titulo_supertopico) 
     titulo_topico = validar_nome(titulo_topico)
@@ -71,52 +77,89 @@ def processa_imagem(imagem_html,titulo_supertopico,titulo_topico,titulo_subtopic
     tipo = ""
     if imagem_html.has_attr('src'):
         tipo = 'src'
-    else:
+    elif imagem_html.has_attr('data-src'):
         tipo = 'data-src'
+    else:
+        return 1
     imagem_html[tipo].replace('../',link)
     extension = imagem_html[tipo].split('.')[-1]
+    filename = f"imagens/{materia}/{titulo_supertopico}/{titulo_topico}/{titulo_subtopico}/{it1}_{it2}."+extension
     if '/' in extension:
-        return
-    # print(f"{imagem_html[tipo].replace('../',link)}")
-    filename = f"imagens/{titulo_supertopico}/{titulo_topico}/{titulo_subtopico}/{it1}_{it2}."+extension
-    os.makedirs(os.path.dirname(filename), exist_ok=True)
-    with open(filename, "wb") as arquivo:
-        response = requests.get(
-            f"{imagem_html[tipo].replace('../',link)}"
-        )
-        arquivo.write(response.content)
+        return 2
+    if baixa==1:
+        os.makedirs(os.path.dirname(filename), exist_ok=True)
+        with open(filename, "wb") as arquivo:
+            if "https" not in imagem_html[tipo]:
+                if '../' in imagem_html[tipo]:
+                    response = requests.get(
+                        f"{link+imagem_html[tipo].replace('../','')}"
+                    )
+                    # print(link+imagem_html[tipo].replace('../',''))
+                else:
+                    response = requests.get(
+                        f"{link+materia+'/'+imagem_html[tipo].replace('../','')}"
+                    )    
+                    # print(link+materia+'/'+imagem_html[tipo].replace('../',''))  
+            else:
+                response = requests.get(
+                    f"{imagem_html[tipo]}"
+                )
+                # print(imagem_html[tipo])
+            if response.status_code != 200:
+                return 3
+            arquivo.write(response.content)
     imagem_html[tipo] = filename
+    return 0
     # print(imagem_html[tipo])
 
 
 def processa_enunciado(questao,titulo_supertopico,titulo_topico,titulo_subtopico,iterador,link):
     imagens = questao.select("img")
     iterador2 = 0
-    # for imagem in imagens:
-        # processa_imagem(imagem,titulo_supertopico,titulo_topico,titulo_subtopico,iterador,iterador2,link)
-        # iterador2 += 1
+    status = 1
+    for imagem in imagens:
+        status = processa_imagem(imagem,titulo_supertopico,titulo_topico,titulo_subtopico,iterador,iterador2,link,1)
+        if status!=0:#algo deu errado com o processamento das imagens, cancelar o processamento da questao
+            print(f"            Erro de codigo {status} no processamento das imagens da questao {iterador}")
+            return TypeError
+        iterador2 += 1
     enunciado = ""
+    origem = ""
     flag = 0 #nao pegar o primeiro paragrafo (ele nao tem nada)
     for child in questao.findChildren(recursive=False):
-        if (child.name == 'p'  or child.name == 'img') and flag:
+        if (child.name == 'p'  or child.name == 'img' or child.name=='div') and flag:
+            if child.name=='div':
+                for child2 in child.findChildren(recursive=False):
+                    if flag==1:#pega a origem da questao, tira o indice e origem do enunciado
+                        if child2.name=='img':
+                            enunciado += str(child2)
+                            continue
+                        x = child2.text
+                        l = x.find('(')
+                        r = x.find(')')
+                        origem = x[l+1:r]
+                        x = x[r+1:]
+                        list(child2.strings)[0].replace_with(x)
+                    enunciado += str(child2)
+                    flag += 1
             if flag==1:#pega a origem da questao, tira o indice e origem do enunciado
+                if child.name=='img' or (child.find('img') and child.text==''):
+                    enunciado += str(child)
+                    continue
                 x = child.text
                 l = x.find('(')
                 r = x.find(')')
                 origem = x[l+1:r]
                 x = x[r+1:]
-                # print(x)
-                # print(len(child.select('img')))
-                child.string.replace_with(x)
+                list(child.strings)[0].replace_with(x)
             enunciado += str(child)
         flag += 1
-    print("fim")
     return enunciado, origem
 
 def processa_gabarito(respostas,questao,iterador):#atencao! algumas questoes tem IMAGENS como alternativas
     try:
         alternativas_html = questao.select("ol li")
-        if len(alternativas_html)!=5: 
+        if len(alternativas_html)<4: 
             return 
         alternativas = [] 
         for alternativa in alternativas_html:
@@ -125,7 +168,7 @@ def processa_gabarito(respostas,questao,iterador):#atencao! algumas questoes tem
                 alternativas.append(imagem[0])
                 # print(imagem[0])
             else:
-                alternativas.append(alternativa.text)
+                alternativas.append(alternativa)
 
         gabarito = respostas[iterador].split('.')[1]
         return alternativas, gabarito
@@ -136,7 +179,7 @@ def get_questoes(link,titulo_supertopico,titulo_topico,titulo_subtopico):
     siteQuestoes = requests.get(link)
     page_content = siteQuestoes.text
     soup = BeautifulSoup(page_content,"lxml")
-    questoes_array = []
+    Questoes = [] #array com questoes do subtopico
     questoes = soup.select(".questoes-enem-vestibular")
     respostas = []
     gabarito_html = soup.select("#gabarito td")
@@ -144,21 +187,20 @@ def get_questoes(link,titulo_supertopico,titulo_topico,titulo_subtopico):
         if resposta.text.find(".")==-1:
             continue
         respostas.append(resposta.text)
-
+    if len(respostas)!=len(questoes):
+        print("             Organizacao de questoes invalida!")
+        return []
     iterador = 0
-    LINK_ATUAL = link.split('/')[3]
-
+    LINK_ATUAL = ''.join(temp+'/' for temp in link.split('/')[3:-2])#isso pode quebrar pra outras materias
     for questao in questoes:
         if len(questao.select(".questoes-enem-vestibular")):
             continue
         try:
             alternativas, gabarito = processa_gabarito(respostas,questao,iterador)
-            enunciado, origem = processa_enunciado(questao,titulo_supertopico,titulo_topico,titulo_subtopico,iterador,LINK_BASE+LINK_ATUAL+'/')
+            enunciado, origem = processa_enunciado(questao,titulo_supertopico,titulo_topico,titulo_subtopico,iterador,LINK_BASE+LINK_ATUAL)
             alternativas, gabarito = processa_gabarito(respostas,questao,iterador)
             iterador += 1
-            questoes_array.append(Questao(origem,enunciado,alternativas,gabarito))
+            Questoes.append(Questao(origem,enunciado,alternativas,gabarito,materia,titulo_supertopico,titulo_topico,titulo_subtopico))
         except TypeError:#se alternativas sao imagens, para de processar a questao e segue em frente
-            print(iterador)
             iterador += 1
-
-    return questoes_array
+    return Questoes

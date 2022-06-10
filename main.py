@@ -1,15 +1,29 @@
 from classes import *
 from funcoes import *  
+import pandas as pd
 
-SupertopicosObj = []
 Questoes = []
 
-get_materia("matematica")
+materias = ["matematica","biologia","quimica","fisica","historia","linguagens","geografia-sociologia-e-filosofia"]
 
-# teste = requests.get(f"https://www.projetoagathaedu.com.br/questoes-militares/matematica/algebra-linear.php")
+for materia in materias:
+    print(f"Extraindo questoes de {materia}:\n")
+    questoes_materia = get_materia(materia)
+    print(f"{len(questoes_materia)} questoes de {materia} encontradas.\n")
+    Questoes.extend(questoes_materia)
 
-# soup = BeautifulSoup(teste.text,"lxml")
+df = pd.DataFrame([x.as_dict() for x in Questoes])
 
-# questoes = soup.select(".questoes-enem-vestibular")
-# for questao in questoes:
-#     print(questao)
+df.to_csv("questoes.csv")
+
+html = df.to_html()
+
+text_file = open("index.html", "w", encoding="utf-8")
+text_file.write(html)
+text_file.close()
+
+print(df)
+
+print(f"{len(Questoes)} questoes encontradas.")
+
+

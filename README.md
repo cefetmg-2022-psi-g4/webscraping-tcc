@@ -6,4 +6,4 @@ Estamos usando para pegar as questões dadas as matérias, separando-as por tamb
 
 Para isso estamos usando *python* e sua biblioteca voltada para webscrapping : **BeautifulSoup**
 
-Temporiamente estamos guardando os dados em um *dataframe* usando o biblioteca : **Pandas**
+Temporiamente estamos guardando os dados em um *dataframe* usando o biblioteca : **Pandas** -> https://docs.google.com/spreadsheets/d/1S8_MiKzeuXbb1UzAGe6LoQkQF8hEyjsl28XsM5RQ-_s/edit?usp=sharing

@@ -1,15 +1,18 @@
 from bs4 import BeautifulSoup
 import requests
 import os
+import textdistance
 from unidecode import unidecode
 from classes import *
+
 
 LINK_BASE = "https://www.projetoagathaedu.com.br/"
 materia = ""
 id_atual = 0
+enunciados = []
 def get_materia(subject):
     teste = requests.get(f"https://www.projetoagathaedu.com.br/banco-de-questoes/{subject}.php")    
-    global materia 
+    global materia, enunciados
     materia = subject
     page_content = teste.text
     soup = BeautifulSoup(page_content,"lxml")
@@ -121,6 +124,7 @@ def processa_enunciado(questao,titulo_supertopico,titulo_topico,titulo_subtopico
         iterador2 += 1
     enunciado = ""
     origem = ""
+    texto_enunciado = ""
     flag = 0 #nao pegar o primeiro paragrafo (ele nao tem nada)
     for child in questao.findChildren(recursive=False):
         if (child.name == 'p'  or child.name == 'img' or child.name=='div') and flag:
@@ -148,9 +152,12 @@ def processa_enunciado(questao,titulo_supertopico,titulo_topico,titulo_subtopico
                 origem = x[l+1:r]
                 x = x[r+1:]
                 list(child.strings)[0].replace_with(x)
+            texto_enunciado += child.text
             enunciado += str(child)
         flag += 1
-    return enunciado, origem
+    texto_enunciado = texto_enunciado.strip()
+    texto_enunciado = texto_enunciado[0:100]
+    return enunciado, texto_enunciado, origem
 
 def processa_gabarito(respostas,questao,iterador):#atencao! algumas questoes tem IMAGENS como alternativas
     try:
@@ -169,8 +176,16 @@ def processa_gabarito(respostas,questao,iterador):#atencao! algumas questoes tem
     except AttributeError:
         return
 
+def verifica_duplicacao(atual):
+    for quest in enunciados:
+        if textdistance.levenshtein.normalized_similarity(atual, quest)>=0.8:
+            return 0
+    return 1
+
+
 def get_questoes(link,titulo_supertopico,titulo_topico,titulo_subtopico):
-    global id_atual
+    global id_atual, enunciados
+    enunciados = []
     siteQuestoes = requests.get(link)
     page_content = siteQuestoes.text
     soup = BeautifulSoup(page_content,"lxml")
@@ -192,11 +207,15 @@ def get_questoes(link,titulo_supertopico,titulo_topico,titulo_subtopico):
             continue
         try:
             alternativas, gabarito = processa_gabarito(respostas,questao,iterador)
-            enunciado, origem = processa_enunciado(questao,titulo_supertopico,titulo_topico,titulo_subtopico,iterador,LINK_BASE+LINK_ATUAL)
+            enunciado, texto_enunciado, origem = processa_enunciado(questao,titulo_supertopico,titulo_topico,titulo_subtopico,iterador,LINK_BASE+LINK_ATUAL)
             alternativas, gabarito = processa_gabarito(respostas,questao,iterador)
+            if verifica_duplicacao(texto_enunciado)==0:
+                print(f"             Questao {iterador} duplicada!")
+                raise TypeError()
             iterador += 1
             Questoes.append(Questao(id_atual,origem,enunciado,alternativas,gabarito,materia,titulo_supertopico,titulo_topico,titulo_subtopico))
             id_atual += 1
+            enunciados.append(texto_enunciado)
         except TypeError:#se alternativas sao imagens, para de processar a questao e segue em frente
             iterador += 1
     return Questoes

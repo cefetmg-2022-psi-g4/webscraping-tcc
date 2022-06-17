@@ -1,5 +1,6 @@
 class Questao:
-    def __init__(self,origem,enunciado,alternativas,gabarito,materia,supertopico,topico,subtopico):
+    def __init__(self,identifcador,origem,enunciado,alternativas,gabarito,materia,supertopico,topico,subtopico):
+        self.id = identifcador
         self.origem = origem
         self.enunciado = enunciado
         self.alternativas = alternativas
@@ -10,7 +11,7 @@ class Questao:
         self.subtopico = subtopico
     
     def as_dict(self):
-        return {"origem": self.origem, "enunciado": self.enunciado, "alternativas": self.alternativas,
+        return {"id": self.id,"origem": self.origem, "enunciado": self.enunciado, "alternativas": self.alternativas,
         "gabarito": self.gabarito, "materia": self.materia, "supertopico": self.supertopico,
         "topico": self.topico, "subtopico": self.subtopico
         }

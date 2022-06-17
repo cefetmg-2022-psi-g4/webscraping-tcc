@@ -6,7 +6,7 @@ from classes import *
 
 LINK_BASE = "https://www.projetoagathaedu.com.br/"
 materia = ""
-
+id_atual = 0
 def get_materia(subject):
     teste = requests.get(f"https://www.projetoagathaedu.com.br/banco-de-questoes/{subject}.php")    
     global materia 
@@ -94,23 +94,19 @@ def processa_imagem(imagem_html,titulo_supertopico,titulo_topico,titulo_subtopic
                     response = requests.get(
                         f"{link+imagem_html[tipo].replace('../','')}"
                     )
-                    # print(link+imagem_html[tipo].replace('../',''))
                 else:
                     response = requests.get(
                         f"{link+materia+'/'+imagem_html[tipo].replace('../','')}"
                     )    
-                    # print(link+materia+'/'+imagem_html[tipo].replace('../',''))  
             else:
                 response = requests.get(
                     f"{imagem_html[tipo]}"
                 )
-                # print(imagem_html[tipo])
             if response.status_code != 200:
                 return 3
             arquivo.write(response.content)
     imagem_html[tipo] = filename
     return 0
-    # print(imagem_html[tipo])
 
 
 def processa_enunciado(questao,titulo_supertopico,titulo_topico,titulo_subtopico,iterador,link):
@@ -161,21 +157,20 @@ def processa_gabarito(respostas,questao,iterador):#atencao! algumas questoes tem
         alternativas_html = questao.select("ol li")
         if len(alternativas_html)<4: 
             return 
-        alternativas = [] 
+        alternativas = "" 
         for alternativa in alternativas_html:
             imagem = alternativa.select("img")
             if len(imagem): 
-                alternativas.append(imagem[0])
-                # print(imagem[0])
+                alternativas += str(imagem[0])
             else:
-                alternativas.append(alternativa)
-
+                alternativas += str(alternativa)
         gabarito = respostas[iterador].split('.')[1]
         return alternativas, gabarito
     except AttributeError:
         return
 
 def get_questoes(link,titulo_supertopico,titulo_topico,titulo_subtopico):
+    global id_atual
     siteQuestoes = requests.get(link)
     page_content = siteQuestoes.text
     soup = BeautifulSoup(page_content,"lxml")
@@ -200,7 +195,8 @@ def get_questoes(link,titulo_supertopico,titulo_topico,titulo_subtopico):
             enunciado, origem = processa_enunciado(questao,titulo_supertopico,titulo_topico,titulo_subtopico,iterador,LINK_BASE+LINK_ATUAL)
             alternativas, gabarito = processa_gabarito(respostas,questao,iterador)
             iterador += 1
-            Questoes.append(Questao(origem,enunciado,alternativas,gabarito,materia,titulo_supertopico,titulo_topico,titulo_subtopico))
+            Questoes.append(Questao(id_atual,origem,enunciado,alternativas,gabarito,materia,titulo_supertopico,titulo_topico,titulo_subtopico))
+            id_atual += 1
         except TypeError:#se alternativas sao imagens, para de processar a questao e segue em frente
             iterador += 1
     return Questoes

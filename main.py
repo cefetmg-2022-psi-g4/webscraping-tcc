@@ -1,6 +1,7 @@
 from classes import *
-from funcoes import *  
+from funcoes import * 
 import pandas as pd
+import sqlite3 as sql
 
 Questoes = []
 
@@ -14,7 +15,15 @@ for materia in materias:
 
 df = pd.DataFrame([x.as_dict() for x in Questoes])
 
+coneccao = sql.connect('questoes.db')
+cursor_sql = coneccao.cursor() 
+
+cursor_sql.execute('CREATE TABLE IF NOT EXISTS questoes(id primary key int, origem text, enunciado text, alternativas text, gabarito char(1), materia text, supertopico text, topico text, subtopico text)')
+coneccao.commit()
+
+
 df.to_csv("questoes.csv")
+df.to_sql('questoes',coneccao,if_exist='replace',index = False)
 
 html = df.to_html()
 

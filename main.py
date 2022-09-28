@@ -34,5 +34,3 @@ text_file.close()
 print(df)
 
 print(f"{len(Questoes)} questoes encontradas.")
-
-

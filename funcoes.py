@@ -72,11 +72,8 @@ def validar_nome(nome):
     nome = unidecode(nome).lstrip().rstrip()
     return nome
 
-def processa_imagem(imagem_html,titulo_supertopico,titulo_topico,titulo_subtopico,it1,it2,link,baixa):
+def processa_imagem(imagem_html,link):
     #tratamento dos titulos
-    titulo_supertopico = validar_nome(titulo_supertopico) 
-    titulo_topico = validar_nome(titulo_topico)
-    titulo_subtopico = validar_nome(titulo_subtopico)
     tipo = ""
     if imagem_html.has_attr('src'):
         tipo = 'src'
@@ -86,38 +83,32 @@ def processa_imagem(imagem_html,titulo_supertopico,titulo_topico,titulo_subtopic
         return 1
     imagem_html[tipo].replace('../',link)
     extension = imagem_html[tipo].split('.')[-1]
-    filename = f"imagens/{materia}/{titulo_supertopico}/{titulo_topico}/{titulo_subtopico}/{it1}_{it2}."+extension
     if '/' in extension:
         return 2
-    if baixa==1:
-        os.makedirs(os.path.dirname(filename), exist_ok=True)
-        with open(filename, "wb") as arquivo:
-            if "https" not in imagem_html[tipo]:
-                if '../' in imagem_html[tipo]:
-                    response = requests.get(
-                        f"{link+imagem_html[tipo].replace('../','')}"
-                    )
-                else:
-                    response = requests.get(
-                        f"{link+materia+'/'+imagem_html[tipo].replace('../','')}"
-                    )    
-            else:
-                response = requests.get(
-                    f"{imagem_html[tipo]}"
-                )
-            if response.status_code != 200:
-                return 3
-            arquivo.write(response.content)
-    imagem_html[tipo] = filename
+    if "https" not in imagem_html[tipo]:
+        if '../' in imagem_html[tipo]:
+            response = requests.get(
+                f"{link+imagem_html[tipo].replace('../','')}"
+            )
+        else:
+            response = requests.get(
+                f"{link+materia+'/'+imagem_html[tipo].replace('../','')}"
+            )    
+    else:
+        response = requests.get(
+            f"{imagem_html[tipo]}"
+        )
+    if response.status_code != 200:
+        return 3
     return 0
 
 
-def processa_enunciado(questao,titulo_supertopico,titulo_topico,titulo_subtopico,iterador,link):
+def processa_enunciado(questao,iterador,link):
     imagens = questao.select("img")
     iterador2 = 0
     status = 1
     for imagem in imagens:
-        status = processa_imagem(imagem,titulo_supertopico,titulo_topico,titulo_subtopico,iterador,iterador2,link,1)
+        status = processa_imagem(imagem,link)
         if status!=0:#algo deu errado com o processamento das imagens, cancelar o processamento da questao
             print(f"            Erro de codigo {status} no processamento das imagens da questao {iterador}")
             return TypeError
@@ -207,7 +198,7 @@ def get_questoes(link,titulo_supertopico,titulo_topico,titulo_subtopico):
             continue
         try:
             alternativas, gabarito = processa_gabarito(respostas,questao,iterador)
-            enunciado, texto_enunciado, origem = processa_enunciado(questao,titulo_supertopico,titulo_topico,titulo_subtopico,iterador,LINK_BASE+LINK_ATUAL)
+            enunciado, texto_enunciado, origem = processa_enunciado(questao,iterador,LINK_BASE+LINK_ATUAL)
             alternativas, gabarito = processa_gabarito(respostas,questao,iterador)
             if verifica_duplicacao(texto_enunciado)==0:
                 print(f"             Questao {iterador} duplicada!")
